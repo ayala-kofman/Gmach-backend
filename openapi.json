@@ -1,0 +1,2562 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "API מאגר הגמ\"חים",
+    "version": "1.0.0",
+    "description": "ה-API של מאגר הגמ\"חים: כל גמ\"ח מתפרסם עם פרטיו וחפציו, וכל אחד יכול למצוא גמ\"ח או חפץ קרוב לביתו.\n\n**איך מתנסים בנתיבים המוגנים:**\n1. פותחים POST /api/auth/login, לוחצים Try it out ומתחברים.\n2. מעתיקים את הערך של token מהתשובה.\n3. לוחצים על הלחצן **Authorize** בראש הדף, מדביקים את ה-token (בלי המילה Bearer) ולוחצים Authorize.\n4. עכשיו אפשר לקרוא לנתיבים המוגנים (הנעילה לצד כל נתיב).\n\nבלי Token חוזר 401. עם Token שהתפקיד שלו לא מתאים חוזר 403."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "השרת הנוכחי"
+    }
+  ],
+  "tags": [
+    {
+      "name": "כללי"
+    },
+    {
+      "name": "התחברות"
+    },
+    {
+      "name": "גמ\"חים"
+    },
+    {
+      "name": "חפצים"
+    },
+    {
+      "name": "השאלות"
+    },
+    {
+      "name": "בקשות מנהל גמ\"ח"
+    },
+    {
+      "name": "ניהול משתמשים"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "כללי"
+        ],
+        "summary": "בדיקת בריאות",
+        "description": "מחזיר ok כשהשרת פעיל. משמש את Render לוודא שהשרת עלה.\n\n**הרשאות:** ציבורי, ללא התחברות",
+        "responses": {
+          "200": {
+            "description": "השרת פעיל",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "status": "ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/categories": {
+      "get": {
+        "tags": [
+          "כללי"
+        ],
+        "summary": "רשימת הקטגוריות",
+        "description": "הקטגוריות הקבועות לגמ\"חים ולחפצים. מתאים למילוי רשימה נפתחת בטפסים ובסינון.\n\n**הרשאות:** ציבורי, ללא התחברות",
+        "responses": {
+          "200": {
+            "description": "מערך שמות קטגוריות",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Category"
+                  }
+                },
+                "example": [
+                  "ציוד לאירועים",
+                  "ציוד לתינוקות",
+                  "כלי עבודה",
+                  "ספרים",
+                  "מכשירים חשמליים",
+                  "ציוד רפואי",
+                  "ביגוד",
+                  "אחר"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "הרשמה",
+        "description": "יוצר משתמש חדש בתפקיד לקוח (CUSTOMER) ומחזיר גם Token, כך שאפשר להמשיך מיד כמחובר.\n\n**הרשאות:** ציבורי, ללא התחברות",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              },
+              "example": {
+                "fullName": "רחל כהן",
+                "email": "rachel@example.com",
+                "password": "MyPassw0rd!",
+                "phone": "050-1234567"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "המשתמש נוצר",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                },
+                "example": {
+                  "token": "eyJhbGciOi...",
+                  "user": {
+                    "id": 7,
+                    "fullName": "רחל כהן",
+                    "email": "rachel@example.com",
+                    "phone": "050-1234567",
+                    "role": "CUSTOMER",
+                    "createdAt": "2026-10-24T18:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "התחברות",
+        "description": "מחזיר JWT. את ה-token מעתיקים ללחצן Authorize שבראש הדף כדי לבצע קריאות מוגנות. בכישלון תמיד חוזרת אותה הודעה (אימייל או סיסמה שגויים).\n\n**הרשאות:** ציבורי, ללא התחברות",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "email": "rachel@example.com",
+                "password": "MyPassw0rd!"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "התחברות הצליחה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                },
+                "example": {
+                  "token": "eyJhbGciOi...",
+                  "user": {
+                    "id": 7,
+                    "fullName": "רחל כהן",
+                    "email": "rachel@example.com",
+                    "phone": "050-1234567",
+                    "role": "CUSTOMER",
+                    "createdAt": "2026-10-24T18:00:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "התחברות"
+        ],
+        "summary": "פרטי המשתמש המחובר",
+        "description": "המשתמש נקבע לפי ה-Token. כולל את התפקיד העדכני.\n\n**הרשאות:** כל משתמש מחובר",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "פרטי המשתמש",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                },
+                "example": {
+                  "id": 7,
+                  "fullName": "רחל כהן",
+                  "email": "rachel@example.com",
+                  "phone": "050-1234567",
+                  "role": "CUSTOMER",
+                  "createdAt": "2026-10-24T18:00:00.000Z"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          }
+        }
+      }
+    },
+    "/api/gemachim": {
+      "get": {
+        "tags": [
+          "גמ\"חים"
+        ],
+        "summary": "רשימת גמ\"חים עם חיפוש, סינון ומיון",
+        "description": "מחזיר גמ\"חים בעימוד. כל הפרמטרים אופציונליים וניתנים לשילוב.\n\n**הרשאות:** ציבורי, ללא התחברות",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "חיפוש חלקי לפי שם הגמ\"ח",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "description": "סינון לפי עיר (התאמה מלאה של שם העיר)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "description": "סינון לפי קטגוריה",
+            "schema": {
+              "$ref": "#/components/schemas/Category"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "מיון: name (א-ת, ברירת מחדל) או newest (החדשים ראשונים)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "name",
+                "newest"
+              ],
+              "default": "name"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "מספר עמוד (מתחיל מ-1)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "description": "כמות רשומות בעמוד (עד 100)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת גמ\"חים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GemachPage"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 3,
+                      "name": "גמ\"ח ציוד לאירועים",
+                      "city": "בני ברק",
+                      "address": "רחוב הרצל 10",
+                      "phone": "03-5551234",
+                      "category": "ציוד לאירועים",
+                      "openingHours": "א'-ה' 16:00-20:00",
+                      "description": "כיסאות, שולחנות וצלחות לשמחות",
+                      "createdAt": "2026-10-24T18:00:00.000Z",
+                      "itemsCount": 4
+                    }
+                  ],
+                  "page": 1,
+                  "pageSize": 20,
+                  "total": 1,
+                  "totalPages": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "גמ\"חים"
+        ],
+        "summary": "הוספת גמ\"ח",
+        "description": "מנהל גמ\"ח יוצר גמ\"ח על שמו. מנהל ראשי חייב לציין managerId (משתמש שהוא מנהל גמ\"ח) שינהל את הגמ\"ח.\n\n**הרשאות:** מנהל גמ\"ח או מנהל ראשי",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GemachInput"
+              },
+              "example": {
+                "name": "גמ\"ח ציוד לאירועים",
+                "city": "בני ברק",
+                "address": "רחוב הרצל 10",
+                "phone": "03-5551234",
+                "category": "ציוד לאירועים",
+                "openingHours": "א'-ה' 16:00-20:00",
+                "description": "כיסאות, שולחנות וצלחות לשמחות"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הגמ\"ח נוצר",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerGemach"
+                },
+                "example": {
+                  "id": 3,
+                  "name": "גמ\"ח ציוד לאירועים",
+                  "city": "בני ברק",
+                  "address": "רחוב הרצל 10",
+                  "phone": "03-5551234",
+                  "category": "ציוד לאירועים",
+                  "openingHours": "א'-ה' 16:00-20:00",
+                  "description": "כיסאות, שולחנות וצלחות לשמחות",
+                  "createdAt": "2026-10-24T18:00:00.000Z",
+                  "itemsCount": 4,
+                  "managerId": 7
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          }
+        }
+      }
+    },
+    "/api/gemachim/mine": {
+      "get": {
+        "tags": [
+          "גמ\"חים"
+        ],
+        "summary": "הגמ\"חים שלי",
+        "description": "הגמ\"חים שבניהול המשתמש המחובר.\n\n**הרשאות:** מנהל גמ\"ח או מנהל ראשי",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת הגמ\"חים שלי",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OwnerGemach"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 3,
+                    "name": "גמ\"ח ציוד לאירועים",
+                    "city": "בני ברק",
+                    "address": "רחוב הרצל 10",
+                    "phone": "03-5551234",
+                    "category": "ציוד לאירועים",
+                    "openingHours": "א'-ה' 16:00-20:00",
+                    "description": "כיסאות, שולחנות וצלחות לשמחות",
+                    "createdAt": "2026-10-24T18:00:00.000Z",
+                    "itemsCount": 4,
+                    "managerId": 7
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          }
+        }
+      }
+    },
+    "/api/gemachim/{id}": {
+      "get": {
+        "tags": [
+          "גמ\"חים"
+        ],
+        "summary": "פרטי גמ\"ח",
+        "description": "פרטי הגמ\"ח הציבוריים. את החפצים מקבלים מ-GET /api/gemachim/{id}/items.\n\n**הרשאות:** ציבורי, ללא התחברות",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "פרטי הגמ\"ח",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Gemach"
+                },
+                "example": {
+                  "id": 3,
+                  "name": "גמ\"ח ציוד לאירועים",
+                  "city": "בני ברק",
+                  "address": "רחוב הרצל 10",
+                  "phone": "03-5551234",
+                  "category": "ציוד לאירועים",
+                  "openingHours": "א'-ה' 16:00-20:00",
+                  "description": "כיסאות, שולחנות וצלחות לשמחות",
+                  "createdAt": "2026-10-24T18:00:00.000Z",
+                  "itemsCount": 4
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "גמ\"חים"
+        ],
+        "summary": "עריכת גמ\"ח",
+        "description": "עדכון חלקי: שולחים רק את מה שמשנים.\n\n**הרשאות:** מנהל הגמ\"ח הבעלים בלבד",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GemachUpdate"
+              },
+              "example": {
+                "phone": "03-5559999",
+                "openingHours": "א'-ה' 17:00-21:00"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "הגמ\"ח המעודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerGemach"
+                },
+                "example": {
+                  "id": 3,
+                  "name": "גמ\"ח ציוד לאירועים",
+                  "city": "בני ברק",
+                  "address": "רחוב הרצל 10",
+                  "phone": "03-5551234",
+                  "category": "ציוד לאירועים",
+                  "openingHours": "א'-ה' 16:00-20:00",
+                  "description": "כיסאות, שולחנות וצלחות לשמחות",
+                  "createdAt": "2026-10-24T18:00:00.000Z",
+                  "itemsCount": 4,
+                  "managerId": 7
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "גמ\"חים"
+        ],
+        "summary": "מחיקת גמ\"ח",
+        "description": "מוחק את הגמ\"ח יחד עם כל החפצים וההשאלות שלו. אי אפשר לבטל.\n\n**הרשאות:** מנהל ראשי בלבד",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "נמחק. ללא תוכן"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          }
+        }
+      }
+    },
+    "/api/gemachim/{id}/items": {
+      "get": {
+        "tags": [
+          "חפצים"
+        ],
+        "summary": "החפצים של גמ\"ח",
+        "description": "רשימת החפצים של הגמ\"ח, ממוינת לפי שם.\n\n**הרשאות:** ציבורי, ללא התחברות",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          },
+          {
+            "name": "availableOnly",
+            "in": "query",
+            "required": false,
+            "description": "true: רק חפצים שיש מהם כמות זמינה",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת חפצים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Item"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 12,
+                    "gemachId": 3,
+                    "name": "מיקסר",
+                    "description": "מיקסר עם קערה גדולה",
+                    "category": "מכשירים חשמליים",
+                    "totalQuantity": 3,
+                    "availableQuantity": 2,
+                    "isAvailable": true,
+                    "createdAt": "2026-10-24T18:00:00.000Z"
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "חפצים"
+        ],
+        "summary": "הוספת חפץ לגמ\"ח",
+        "description": "הכמות הזמינה ההתחלתית שווה לכמות הכוללת.\n\n**הרשאות:** מנהל הגמ\"ח הבעלים בלבד",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemInput"
+              },
+              "example": {
+                "name": "מיקסר",
+                "description": "מיקסר עם קערה גדולה",
+                "category": "מכשירים חשמליים",
+                "totalQuantity": 3
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "החפץ נוצר",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                },
+                "example": {
+                  "id": 12,
+                  "gemachId": 3,
+                  "name": "מיקסר",
+                  "description": "מיקסר עם קערה גדולה",
+                  "category": "מכשירים חשמליים",
+                  "totalQuantity": 3,
+                  "availableQuantity": 3,
+                  "isAvailable": true,
+                  "createdAt": "2026-10-24T18:00:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          }
+        }
+      }
+    },
+    "/api/gemachim/{id}/loans": {
+      "get": {
+        "tags": [
+          "השאלות"
+        ],
+        "summary": "ההשאלות הפעילות של גמ\"ח",
+        "description": "מידע פרטי: שמות וטלפונים של השואלים. מנהל גמ\"ח אחר לא יכול לראות.\n\n**הרשאות:** מנהל הגמ\"ח הבעלים, או מנהל ראשי (צפייה בלבד)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת השאלות פעילות",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Loan"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 5,
+                    "itemId": 12,
+                    "itemName": "מיקסר",
+                    "borrowerName": "דוד לוי",
+                    "borrowerPhone": "052-7654321",
+                    "quantity": 1,
+                    "loanDate": "2026-10-24T00:00:00.000Z",
+                    "plannedReturnDate": "2026-10-31T00:00:00.000Z",
+                    "isOverdue": false
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          }
+        }
+      }
+    },
+    "/api/items/search": {
+      "get": {
+        "tags": [
+          "חפצים"
+        ],
+        "summary": "חיפוש חפץ בכל הגמ\"חים",
+        "description": "למשל q=מיקסר&city=חיפה. התוצאה מקובצת לפי גמ\"ח: כל גמ\"ח שמחזיק חפץ מתאים, ובתוכו החפצים. החיפוש לפי הטקסט שנכתב בשם החפץ.\n\n**הרשאות:** ציבורי, ללא התחברות",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "חיפוש חלקי לפי שם החפץ",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "description": "סינון לפי עיר הגמ\"ח",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "description": "סינון לפי קטגוריית החפץ",
+            "schema": {
+              "$ref": "#/components/schemas/Category"
+            }
+          },
+          {
+            "name": "availableOnly",
+            "in": "query",
+            "required": false,
+            "description": "true: רק חפצים זמינים",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "מספר עמוד (מתחיל מ-1)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "description": "כמות רשומות בעמוד (עד 100)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "גמ\"חים שמחזיקים את החפץ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemSearchPage"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "gemach": {
+                        "id": 3,
+                        "name": "גמ\"ח ציוד לאירועים",
+                        "city": "בני ברק",
+                        "address": "רחוב הרצל 10",
+                        "phone": "03-5551234",
+                        "category": "ציוד לאירועים",
+                        "openingHours": "א'-ה' 16:00-20:00",
+                        "description": "כיסאות, שולחנות וצלחות לשמחות",
+                        "createdAt": "2026-10-24T18:00:00.000Z",
+                        "itemsCount": 4
+                      },
+                      "items": [
+                        {
+                          "id": 12,
+                          "gemachId": 3,
+                          "name": "מיקסר",
+                          "description": "מיקסר עם קערה גדולה",
+                          "category": "מכשירים חשמליים",
+                          "totalQuantity": 3,
+                          "availableQuantity": 2,
+                          "isAvailable": true,
+                          "createdAt": "2026-10-24T18:00:00.000Z"
+                        }
+                      ]
+                    }
+                  ],
+                  "page": 1,
+                  "pageSize": 20,
+                  "total": 1,
+                  "totalPages": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          }
+        }
+      }
+    },
+    "/api/items/{id}": {
+      "put": {
+        "tags": [
+          "חפצים"
+        ],
+        "summary": "עריכת חפץ",
+        "description": "עדכון חלקי. שינוי totalQuantity מחשב מחדש את הכמות הזמינה לפי מה שמושאל כרגע.\n\n**הרשאות:** מנהל הגמ\"ח שהחפץ שייך אליו",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemUpdate"
+              },
+              "example": {
+                "totalQuantity": 5
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "החפץ המעודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Item"
+                },
+                "example": {
+                  "id": 12,
+                  "gemachId": 3,
+                  "name": "מיקסר",
+                  "description": "מיקסר עם קערה גדולה",
+                  "category": "מכשירים חשמליים",
+                  "totalQuantity": 5,
+                  "availableQuantity": 4,
+                  "isAvailable": true,
+                  "createdAt": "2026-10-24T18:00:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "חפצים"
+        ],
+        "summary": "מחיקת חפץ",
+        "description": "מוחק גם את ההשאלות הפעילות של החפץ.\n\n**הרשאות:** מנהל הגמ\"ח שהחפץ שייך אליו",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "נמחק. ללא תוכן"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          }
+        }
+      }
+    },
+    "/api/items/{id}/loans": {
+      "post": {
+        "tags": [
+          "השאלות"
+        ],
+        "summary": "רישום השאלה",
+        "description": "רושם השאלה ומוריד את הכמות מהכמות הזמינה של החפץ. אם אין מספיק כמות: 409.\n\n**הרשאות:** מנהל הגמ\"ח שהחפץ שייך אליו",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoanInput"
+              },
+              "example": {
+                "borrowerName": "דוד לוי",
+                "borrowerPhone": "052-7654321",
+                "quantity": 1,
+                "plannedReturnDate": "2026-10-31"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "ההשאלה נרשמה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Loan"
+                },
+                "example": {
+                  "id": 5,
+                  "itemId": 12,
+                  "itemName": "מיקסר",
+                  "borrowerName": "דוד לוי",
+                  "borrowerPhone": "052-7654321",
+                  "quantity": 1,
+                  "loanDate": "2026-10-24T00:00:00.000Z",
+                  "plannedReturnDate": "2026-10-31T00:00:00.000Z",
+                  "isOverdue": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          }
+        }
+      }
+    },
+    "/api/loans/{id}": {
+      "put": {
+        "tags": [
+          "השאלות"
+        ],
+        "summary": "עריכת השאלה",
+        "description": "עדכון חלקי. שינוי quantity מעדכן את הכמות הזמינה של החפץ בהתאם.\n\n**הרשאות:** מנהל הגמ\"ח שההשאלה שייכת אליו",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoanUpdate"
+              },
+              "example": {
+                "plannedReturnDate": "2026-11-02"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "ההשאלה המעודכנת",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Loan"
+                },
+                "example": {
+                  "id": 5,
+                  "itemId": 12,
+                  "itemName": "מיקסר",
+                  "borrowerName": "דוד לוי",
+                  "borrowerPhone": "052-7654321",
+                  "quantity": 1,
+                  "loanDate": "2026-10-24T00:00:00.000Z",
+                  "plannedReturnDate": "2026-10-31T00:00:00.000Z",
+                  "isOverdue": false
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          }
+        }
+      }
+    },
+    "/api/loans/{id}/return": {
+      "post": {
+        "tags": [
+          "השאלות"
+        ],
+        "summary": "סימון \"הוחזר\"",
+        "description": "מוחק את ההשאלה ומחזיר את הכמות לחפץ. לא נשמרת היסטוריה.\n\n**הרשאות:** מנהל הגמ\"ח שההשאלה שייכת אליו",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "ההשאלה נמחקה והכמות הוחזרה. ללא תוכן"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          }
+        }
+      }
+    },
+    "/api/manager-requests": {
+      "post": {
+        "tags": [
+          "בקשות מנהל גמ\"ח"
+        ],
+        "summary": "שליחת בקשה להפוך למנהל גמ\"ח",
+        "description": "הלקוח מזוהה לפי ה-Token, ולכן אין לשלוח ת\"ז או סיסמה. אפשר רק בקשה אחת ממתינה בכל פעם (אחרת 409). מי שנדחה יכול לשלוח בקשה חדשה.\n\n**הרשאות:** לקוח (CUSTOMER) בלבד",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagerRequestInput"
+              },
+              "example": {
+                "description": "אני רוצה לפתוח גמ\"ח לציוד תינוקות בשכונה"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "הבקשה נשלחה וממתינה להחלטה",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagerRequest"
+                },
+                "example": {
+                  "id": 2,
+                  "userId": 7,
+                  "description": "אני רוצה לפתוח גמ\"ח לציוד תינוקות בשכונה",
+                  "status": "PENDING",
+                  "createdAt": "2026-10-24T18:00:00.000Z",
+                  "decidedAt": null
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "בקשות מנהל גמ\"ח"
+        ],
+        "summary": "בקשות להחלטה",
+        "description": "כולל את פרטי הלקוח (שם, אימייל, טלפון) בכל בקשה.\n\n**הרשאות:** מנהל ראשי בלבד",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "סינון לפי סטטוס",
+            "schema": {
+              "$ref": "#/components/schemas/RequestStatus"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "מספר עמוד (מתחיל מ-1)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "description": "כמות רשומות בעמוד (עד 100)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת בקשות",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagerRequestPage"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 2,
+                      "userId": 7,
+                      "description": "אני רוצה לפתוח גמ\"ח לציוד תינוקות בשכונה",
+                      "status": "PENDING",
+                      "createdAt": "2026-10-24T18:00:00.000Z",
+                      "decidedAt": null,
+                      "user": {
+                        "id": 7,
+                        "fullName": "רחל כהן",
+                        "email": "rachel@example.com",
+                        "phone": "050-1234567",
+                        "role": "CUSTOMER"
+                      }
+                    }
+                  ],
+                  "page": 1,
+                  "pageSize": 20,
+                  "total": 1,
+                  "totalPages": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          }
+        }
+      }
+    },
+    "/api/manager-requests/mine": {
+      "get": {
+        "tags": [
+          "בקשות מנהל גמ\"ח"
+        ],
+        "summary": "הבקשות שלי וסטטוס",
+        "description": "הסטטוס: PENDING (ממתין), APPROVED (מאושר), REJECTED (נדחה).\n\n**הרשאות:** כל משתמש מחובר",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הבקשות שלי",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ManagerRequest"
+                  }
+                },
+                "example": [
+                  {
+                    "id": 2,
+                    "userId": 7,
+                    "description": "אני רוצה לפתוח גמ\"ח לציוד תינוקות בשכונה",
+                    "status": "PENDING",
+                    "createdAt": "2026-10-24T18:00:00.000Z",
+                    "decidedAt": null
+                  }
+                ]
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          }
+        }
+      }
+    },
+    "/api/manager-requests/{id}/approve": {
+      "patch": {
+        "tags": [
+          "בקשות מנהל גמ\"ח"
+        ],
+        "summary": "אישור בקשה",
+        "description": "הבקשה הופכת ל-APPROVED ותפקיד המשתמש הופך ל-GEMACH_MANAGER. נכנס לתוקף מיד, בלי התחברות מחדש. בקשה שכבר טופלה: 409.\n\n**הרשאות:** מנהל ראשי בלבד",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הבקשה המעודכנת",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagerRequest"
+                },
+                "example": {
+                  "id": 2,
+                  "userId": 7,
+                  "description": "אני רוצה לפתוח גמ\"ח לציוד תינוקות בשכונה",
+                  "status": "APPROVED",
+                  "createdAt": "2026-10-24T18:00:00.000Z",
+                  "decidedAt": "2026-10-25T09:00:00.000Z",
+                  "user": {
+                    "id": 7,
+                    "fullName": "רחל כהן",
+                    "email": "rachel@example.com",
+                    "phone": "050-1234567",
+                    "role": "CUSTOMER"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          }
+        }
+      }
+    },
+    "/api/manager-requests/{id}/reject": {
+      "patch": {
+        "tags": [
+          "בקשות מנהל גמ\"ח"
+        ],
+        "summary": "דחיית בקשה",
+        "description": "הבקשה הופכת ל-REJECTED, והמשתמש נשאר לקוח.\n\n**הרשאות:** מנהל ראשי בלבד",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "הבקשה המעודכנת",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagerRequest"
+                },
+                "example": {
+                  "id": 2,
+                  "userId": 7,
+                  "description": "אני רוצה לפתוח גמ\"ח לציוד תינוקות בשכונה",
+                  "status": "REJECTED",
+                  "createdAt": "2026-10-24T18:00:00.000Z",
+                  "decidedAt": "2026-10-25T09:00:00.000Z",
+                  "user": {
+                    "id": 7,
+                    "fullName": "רחל כהן",
+                    "email": "rachel@example.com",
+                    "phone": "050-1234567",
+                    "role": "CUSTOMER"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "ניהול משתמשים"
+        ],
+        "summary": "רשימת הלקוחות והמשתמשים",
+        "description": "ללא סיסמאות. אפשר לחפש לפי שם או אימייל ולסנן לפי תפקיד.\n\n**הרשאות:** מנהל ראשי בלבד",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "חיפוש חלקי בשם או באימייל",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "required": false,
+            "description": "סינון לפי תפקיד",
+            "schema": {
+              "$ref": "#/components/schemas/Role"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "מספר עמוד (מתחיל מ-1)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "description": "כמות רשומות בעמוד (עד 100)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "רשימת משתמשים",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPage"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 7,
+                      "fullName": "רחל כהן",
+                      "email": "rachel@example.com",
+                      "phone": "050-1234567",
+                      "role": "CUSTOMER",
+                      "createdAt": "2026-10-24T18:00:00.000Z"
+                    }
+                  ],
+                  "page": 1,
+                  "pageSize": 20,
+                  "total": 1,
+                  "totalPages": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          }
+        }
+      }
+    },
+    "/api/users/{id}/role": {
+      "patch": {
+        "tags": [
+          "ניהול משתמשים"
+        ],
+        "summary": "שינוי תפקיד של משתמש",
+        "description": "מנהל ראשי לא יכול לשנות את התפקיד של עצמו (400).\n\n**הרשאות:** מנהל ראשי בלבד",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "המזהה המספרי של הרשומה",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRoleRequest"
+              },
+              "example": {
+                "role": "GEMACH_MANAGER"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "המשתמש המעודכן",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                },
+                "example": {
+                  "id": 7,
+                  "fullName": "רחל כהן",
+                  "email": "rachel@example.com",
+                  "phone": "050-1234567",
+                  "role": "GEMACH_MANAGER",
+                  "createdAt": "2026-10-24T18:00:00.000Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "BAD_REQUEST",
+                  "VALIDATION_ERROR",
+                  "UNAUTHORIZED",
+                  "FORBIDDEN",
+                  "NOT_FOUND",
+                  "CONFLICT",
+                  "TOO_MANY_REQUESTS",
+                  "INTERNAL_ERROR"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "description": "הודעה בעברית שאפשר להציג למשתמש"
+              },
+              "details": {
+                "type": "array",
+                "description": "מופיע בשגיאות ולידציה: אילו שדות שגויים",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "CUSTOMER",
+          "GEMACH_MANAGER",
+          "ADMIN"
+        ]
+      },
+      "RequestStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "APPROVED",
+          "REJECTED"
+        ]
+      },
+      "Category": {
+        "type": "string",
+        "enum": [
+          "ציוד לאירועים",
+          "ציוד לתינוקות",
+          "כלי עבודה",
+          "ספרים",
+          "מכשירים חשמליים",
+          "ציוד רפואי",
+          "ביגוד",
+          "אחר"
+        ]
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": [
+          "fullName",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 72,
+            "format": "password"
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^[0-9+\\-\\s()]{7,20}$",
+            "description": "ספרות, רווחים, + ו- בלבד",
+            "example": "03-5551234",
+            "nullable": true
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "format": "password"
+          }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "JWT. נשלח בכל קריאה מוגנת: Authorization: Bearer <token>"
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "Gemach": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "openingHours": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "itemsCount": {
+            "type": "integer",
+            "description": "כמה חפצים רשומים בגמ\"ח"
+          }
+        }
+      },
+      "OwnerGemach": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Gemach"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "managerId": {
+                "type": "integer"
+              }
+            }
+          }
+        ]
+      },
+      "GemachInput": {
+        "type": "object",
+        "required": [
+          "name",
+          "city",
+          "address",
+          "phone",
+          "category"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "city": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "address": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^[0-9+\\-\\s()]{7,20}$",
+            "description": "ספרות, רווחים, + ו- בלבד",
+            "example": "03-5551234"
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "openingHours": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1000
+          },
+          "managerId": {
+            "type": "integer",
+            "description": "חובה כשמנהל ראשי יוצר גמ\"ח (מי ינהל אותו). מנהל גמ\"ח לא צריך לשלוח."
+          }
+        }
+      },
+      "GemachUpdate": {
+        "type": "object",
+        "minProperties": 1,
+        "description": "שולחים רק את השדות שרוצים לשנות. null בשעות/תיאור מנקה את השדה.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "city": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "address": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200
+          },
+          "phone": {
+            "type": "string",
+            "pattern": "^[0-9+\\-\\s()]{7,20}$",
+            "description": "ספרות, רווחים, + ו- בלבד",
+            "example": "03-5551234"
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "openingHours": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1000
+          }
+        }
+      },
+      "GemachPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Gemach"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "Item": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "gemachId": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "totalQuantity": {
+            "type": "integer"
+          },
+          "availableQuantity": {
+            "type": "integer"
+          },
+          "isAvailable": {
+            "type": "boolean",
+            "description": "מחושב: true אם availableQuantity גדול מ-0"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ItemInput": {
+        "type": "object",
+        "required": [
+          "name",
+          "category",
+          "totalQuantity"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "totalQuantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          }
+        }
+      },
+      "ItemUpdate": {
+        "type": "object",
+        "minProperties": 1,
+        "description": "שולחים רק את מה שרוצים לשנות. הכמות הזמינה מחושבת אוטומטית; הכמות הכוללת לא יכולה להיות קטנה ממה שמושאל כרגע.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          },
+          "category": {
+            "$ref": "#/components/schemas/Category"
+          },
+          "totalQuantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000
+          }
+        }
+      },
+      "ItemSearchPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "gemach": {
+                  "$ref": "#/components/schemas/Gemach"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Item"
+                  }
+                }
+              }
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer",
+            "description": "כמה חפצים נמצאו בסך הכול"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "Loan": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "itemId": {
+            "type": "integer"
+          },
+          "itemName": {
+            "type": "string"
+          },
+          "borrowerName": {
+            "type": "string"
+          },
+          "borrowerPhone": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "loanDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "plannedReturnDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isOverdue": {
+            "type": "boolean",
+            "description": "מחושב: תאריך ההחזרה המתוכנן כבר עבר"
+          }
+        }
+      },
+      "LoanInput": {
+        "type": "object",
+        "required": [
+          "borrowerName",
+          "borrowerPhone",
+          "plannedReturnDate"
+        ],
+        "properties": {
+          "borrowerName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "borrowerPhone": {
+            "type": "string",
+            "pattern": "^[0-9+\\-\\s()]{7,20}$",
+            "description": "ספרות, רווחים, + ו- בלבד",
+            "example": "03-5551234"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "loanDate": {
+            "type": "string",
+            "description": "אופציונלי. ברירת מחדל: עכשיו. פורמט YYYY-MM-DD או ISO מלא",
+            "example": "2026-10-24"
+          },
+          "plannedReturnDate": {
+            "type": "string",
+            "description": "חייב להיות אחרי תאריך ההשאלה",
+            "example": "2026-10-31"
+          }
+        }
+      },
+      "LoanUpdate": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "borrowerName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "borrowerPhone": {
+            "type": "string",
+            "pattern": "^[0-9+\\-\\s()]{7,20}$",
+            "description": "ספרות, רווחים, + ו- בלבד",
+            "example": "03-5551234"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "loanDate": {
+            "type": "string",
+            "example": "2026-10-24"
+          },
+          "plannedReturnDate": {
+            "type": "string",
+            "example": "2026-11-02"
+          }
+        }
+      },
+      "ManagerRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "userId": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RequestStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "user": {
+            "type": "object",
+            "description": "מופיע רק ברשימה של המנהל הראשי",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "fullName": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string",
+                "nullable": true
+              },
+              "role": {
+                "$ref": "#/components/schemas/Role"
+              }
+            }
+          }
+        }
+      },
+      "ManagerRequestInput": {
+        "type": "object",
+        "required": [
+          "description"
+        ],
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500,
+            "description": "תיאור קצר: מה נושא הגמ\"ח שרוצים לפתוח"
+          }
+        }
+      },
+      "ManagerRequestPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ManagerRequest"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "UserPage": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "page": {
+            "type": "integer"
+          },
+          "pageSize": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "totalPages": {
+            "type": "integer"
+          }
+        }
+      },
+      "UpdateRoleRequest": {
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        }
+      }
+    },
+    "responses": {
+      "Error400": {
+        "description": "בקשה לא תקינה (ולידציה)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "VALIDATION_ERROR",
+                "message": "הנתונים שנשלחו אינם תקינים",
+                "details": [
+                  {
+                    "path": "name",
+                    "message": "קלט לא תקין"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "Error401": {
+        "description": "לא מחובר: חסר Token, או שה-Token לא תקין / פג תוקפו",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "UNAUTHORIZED",
+                "message": "חסר Token. יש להתחבר"
+              }
+            }
+          }
+        }
+      },
+      "Error403": {
+        "description": "אין הרשאה: התפקיד אינו מתאים, או שהמשאב שייך למשתמש אחר",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "FORBIDDEN",
+                "message": "אין לך הרשאה לבצע פעולה זו"
+              }
+            }
+          }
+        }
+      },
+      "Error404": {
+        "description": "לא נמצא",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "NOT_FOUND",
+                "message": "המשאב המבוקש לא נמצא"
+              }
+            }
+          }
+        }
+      },
+      "Error409": {
+        "description": "התנגשות עם מצב קיים (למשל אימייל כבר רשום, אין כמות זמינה, בקשה כבר טופלה)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "error": {
+                "code": "CONFLICT",
+                "message": "כתובת האימייל כבר רשומה במערכת"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

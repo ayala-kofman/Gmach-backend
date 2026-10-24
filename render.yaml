@@ -1,0 +1,43 @@
+# הגדרות פריסה ל-Render (Blueprint).
+# אפשר ליצור את השירות ידנית מהדשבורד (ראי START-HERE.md) או דרך Blueprint שמשתמש בקובץ הזה.
+# הערה: בשירות חינמי אין גישה למסוף (Shell), ולכן המיגרציות רצות אוטומטית בהפעלה (start:prod).
+
+services:
+  - type: web
+    name: gemach-backend
+    runtime: node
+    plan: free
+    region: frankfurt # האזור הקרוב ביותר לישראל מבין האזורים הזמינים ב-Render
+
+    # npm install --include=dev: בענן NODE_ENV=production, ובלי הדגל הזה לא יותקנו
+    # TypeScript ו-Prisma CLI שנחוצים לבנייה.
+    # npm run build: מריץ prisma generate ואז מקמפל את ה-TypeScript.
+    buildCommand: npm install --include=dev && npm run build
+
+    # prisma migrate deploy (יוצר/מעדכן את הטבלאות) ואז הפעלת השרת
+    startCommand: npm run start:prod
+
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit # כל שינוי שנשמר ב-GitHub יפרוס גרסה חדשה
+
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # כתובת החיבור למסד הנתונים (Supabase / Neon). Render ישאל אותך עליה בעת היצירה.
+      - key: DATABASE_URL
+        sync: false
+      # מפתח סודי: Render מייצר אחד אקראי ובטוח באופן אוטומטי
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      # כתובת/כתובות ה-React שמורשות לפנות לשרת (מופרדות בפסיק, בלי / בסוף)
+      - key: CORS_ORIGIN
+        sync: false
+      # פרטי המנהל הראשי הראשון. נוצר אוטומטית בעליית השרת, אם עוד לא קיים.
+      - key: SEED_ADMIN_EMAIL
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
